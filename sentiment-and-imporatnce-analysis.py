@@ -426,3 +426,422 @@ plt.ylabel('Sum of squared distance')  # Label for the y-axis
 plt.title('Elbow Method For Optimal clusters')  # Title of the plot
 plt.show()  # Display the plot
 
+
+
+
+
+#This code checks each topic score for both pros and cons sections. If a score is below 0.1 or there are no nouns 
+#(`Noun_count` is 0), it sets that topic score to 0, filtering out low-relevance topics and rows without nouns.
+
+# Create a copy of `topics_all1` DataFrame for manipulation (PROS)
+indi1 = topics_all1
+
+# Loop through each row in `topics_all1`
+for i in range(len(topics_all1)):
+    # Loop through each topic column (topic_0 to topic_4)
+    for j in range(5):
+        n = "topic_" + str(j)  # Define the topic column name
+        
+        # Check if the topic value is below 0.1 or if `Noun_count` is 0
+        if(indi1.loc[i].at[n] < 0.1 or indi1.loc[i].at['Noun_count'] == 0):
+            # Set the topic value to 0 if either condition is met
+            indi1.at[i, n] = 0
+
+
+# Create a copy of `topics_all2` DataFrame for manipulation (CONS)
+indi2 = topics_all2
+
+# Loop through each row in `topics_all2`
+for i in range(len(topics_all2)):
+    # Loop through each topic column (topic_0 to topic_4)
+    for j in range(5):
+        n = "topic_" + str(j)  # Define the topic column name
+        
+        # Check if the topic value is below 0.1 or if `Noun_count` is 0
+        if(indi2.loc[i].at[n] < 0.1 or indi2.loc[i].at['Noun_count'] == 0):
+            # Set the topic value to 0 if either condition is met
+            indi2.at[i, n] = 0
+
+
+
+
+
+
+#This code calculates the weighted probabilities for each topic in the pros and cons sections by multiplying each topic’s score by the noun count for each 
+#review. These weighted probabilities are then stored in separate columns in the ind_prob DataFrame for pros (_pb_pros) and cons (_pb_cons).
+
+
+# Initialize an empty DataFrame to store probabilities for pros and cons
+ind_prob = pd.DataFrame()
+
+# Loop through each topic (0 to 4) for the pros section
+for i in range(5):
+    a = []  # Initialize an empty list to store calculated probabilities for each row
+    for j in range(len(indi1)):  # Loop through each row in the 'indi1' DataFrame (pros data)
+        p = 'topic_' + str(i)  # Generate the topic column name, e.g., 'topic_0'
+        # Calculate the weighted probability by multiplying the topic value by the noun count
+        n = float(indi1.loc[j].at[p]) * int(indi1.loc[j].at['Noun_count'])
+        a.append(n)  # Append the result to the list
+    q = p + "_pb_pros"  # Generate a column name for pros probability
+    ind_prob[q] = a  # Add the calculated probabilities as a new column in 'ind_prob'
+
+# Repeat the same process for the cons section
+for i in range(5):
+    a = []  # Initialize an empty list for cons probabilities
+    for j in range(len(indi2)):  # Loop through each row in the 'indi2' DataFrame (cons data)
+        p = 'topic_' + str(i)  # Generate the topic column name, e.g., 'topic_0'
+        # Calculate the weighted probability by multiplying the topic value by the noun count
+        n = float(indi2.loc[j].at[p]) * int(indi2.loc[j].at['Noun_count'])
+        a.append(n)  # Append the result to the list
+    q = p + "_pb_cons"  # Generate a column name for cons probability
+    ind_prob[q] = a  # Add the calculated probabilities as a new column in 'ind_prob'
+
+# Display the resulting DataFrame with topic probabilities for pros and cons
+ind_prob
+
+
+
+
+
+
+
+
+
+#This code performs sentiment analysis by calculating a sentiment score for each topic based on the difference between pros and cons probabilities. 
+#The sentiment scores are stored in ind_sent, and additional ratings are appended to this DataFrame before exporting the results to a CSV file.
+
+
+# Initialize an empty DataFrame to store sentiment analysis results
+ind_sent = pd.DataFrame()
+
+# Loop through each topic (0 to 4) to calculate sentiment scores based on pros and cons probabilities
+for j in range(5):
+    p = 'topic_' + str(j)            # Define the topic column name (e.g., 'topic_0')
+    x = p + "_pb_pros"                # Define the pros probability column for the current topic
+    y = p + "_pb_cons"                # Define the cons probability column for the current topic
+    a = []                            # Initialize a list to store sentiment scores for each row
+
+    # Calculate sentiment score for each row in 'ind_prob'
+    for i in range(len(ind_prob)):
+        r = ind_prob.loc[i].at[x] - ind_prob.loc[i].at[y]    # Difference between pros and cons probabilities
+        s = ind_prob.loc[i].at[x] + ind_prob.loc[i].at[y]    # Sum of pros and cons probabilities
+        q = r / s if s != 0 else 0                           # Calculate sentiment ratio, avoiding division by zero
+
+        a.append(q)  # Append the sentiment score to the list
+
+    q = p + "_sent"                 # Define the column name for the sentiment score of the current topic
+    ind_sent[q] = a                 # Add the calculated sentiment scores as a new column in 'ind_sent'
+
+# Handle NaN values in 'ind_sent' by replacing them with 0
+for i in range(len(ind_sent)):
+    for j in range(5):
+        n = "topic_" + str(j) + "_sent"   # Define the sentiment column name for each topic
+        if str(ind_sent.loc[i].at[n]) == 'nan':
+            ind_sent.at[i, n] = 0         # Replace NaN values with 0
+
+# Add additional rating columns from 'store' DataFrame to the 'ind_sent' DataFrame for further analysis
+ind_sent['Overall Rating'] = store['Overall Rating']
+ind_sent['Ease of Use'] = store['Ease of Use']
+ind_sent['Customer Service'] = store['Customer Service']
+ind_sent['Features'] = store['Features']
+ind_sent['Value for Money'] = store['Value for Money']
+ind_sent['Likelihood to Recommend'] = store['Likelihood to Recommend']
+
+# Display the 'ind_sent' DataFrame with calculated sentiment scores and additional ratings
+ind_sent
+
+# Save the sentiment analysis results to a CSV file for future reference
+ind_sent.to_csv('Rev_sent.csv')
+
+
+
+
+
+
+
+#This code calculates weighted sentiment probabilities for pros and cons based on noun counts for each topic and stores these values in a new DataFrame 
+#(sent_prob), which is then saved as a CSV file.
+
+# Initialize an empty list to store noun counts for each document in the corpus
+noun_n = []
+for i in corpus:
+    noun_n.append(len(i))   # Append the length (number of nouns) of each document to noun_n
+
+# Split noun counts into two lists for pros and cons
+noun_n1 = noun_n[0:int(len(df)/2)]      # First half of noun counts for pros
+noun_n2 = noun_n[int(len(df)/2):]       # Second half of noun counts for cons
+
+# Create copies of the topic data frames for pros and cons
+prob_df2 = topics_all2                  # Data for cons
+prob_df1 = topics_all1                  # Data for pros
+
+# Add 'Noun_count' column to both pros and cons DataFrames
+prob_df2['Noun_count'] = noun_n2
+prob_df1['Noun_count'] = noun_n1
+
+# Prepare a DataFrame to store noun counts and sentiment probabilities for pros and cons
+data = { 'Noun_count_p' : noun_n1,
+         'Noun_count_c' : noun_n2 }
+sent_prob = pd.DataFrame(data)
+
+# Calculate weighted probabilities for each topic in pros and add to sent_prob DataFrame
+for i in range(5):
+    a = []
+    for j in range(len(prob_df1)):
+        p = 'topic_' + str(i)                                   # Define the topic column name
+        n = float(prob_df1.loc[j].at[p]) * int(prob_df1.loc[j].at['Noun_count'])  # Calculate weighted value
+        a.append(n)                                             # Append result to list
+    q = p + "_pb_pros"                                          # Define the column name for probability of pros
+    sent_prob[q] = a                                            # Add pros probabilities to sent_prob
+
+# Calculate weighted probabilities for each topic in cons and add to sent_prob DataFrame
+for i in range(5):
+    a = []
+    for j in range(len(prob_df2)):
+        p = 'topic_' + str(i)                                   # Define the topic column name
+        n = float(prob_df2.loc[j].at[p]) * int(prob_df2.loc[j].at['Noun_count'])  # Calculate weighted value
+        a.append(n)                                             # Append result to list
+    q = p + "_pb_cons"                                          # Define the column name for probability of cons
+    sent_prob[q] = a                                            # Add cons probabilities to sent_prob
+
+# Save the sentiment probabilities DataFrame to a CSV file
+sent_prob.to_csv('sentiment_prob.csv')
+
+
+
+
+
+
+
+# The code calculates overall sentiment scores (positivity/negativity) and importance levels for each topic by analyzing the balance of pros and cons and 
+#their cumulative magnitude. This helps identify each topic's sentiment direction and relative weight in the dataset.
+
+
+# Calculate sentiment scores for each topic by comparing pros and cons
+sent = []
+for i in range(5):
+    a = 0  # Sum of sentiment difference (pros - cons) for the current topic
+    b = 0  # Sum of total sentiment (pros + cons) for the current topic
+    s = 'topic_' + str(i) + '_pb_cons'  # Cons column name for the current topic
+    r = 'topic_' + str(i) + '_pb_pros'  # Pros column name for the current topic
+    
+    # Loop through each entry in sent_prob to accumulate pros/cons differences and totals
+    for j in range(int(len(sent_prob))):
+        a += (float(sent_prob.loc[j].at[r]) - float(sent_prob.loc[j].at[s]))  # Add sentiment difference
+        b += (float(sent_prob.loc[j].at[r]) + float(sent_prob.loc[j].at[s]))  # Add total sentiment
+    
+    t = a / b  # Calculate sentiment score (ratio of difference to total sentiment)
+    sent.append(t)  # Append the calculated sentiment score for the topic
+
+sent  # Display the calculated sentiment scores
+
+# Calculate importance of each topic based on overall sentiment magnitude
+imp = []
+fact = []  # Temporary list to store total sentiment for each topic
+x = 0  # Sum of all topic sentiment magnitudes
+
+# First loop: Calculate overall sentiment magnitude sum across all topics and instances
+for i in range(len(sent_prob)):
+    for j in range(5):
+        s = 'topic_' + str(j) + '_pb_cons'  # Cons column name for the current topic
+        r = 'topic_' + str(j) + '_pb_pros'  # Pros column name for the current topic
+        x += ((sent_prob.loc[i].at[r]) + (sent_prob.loc[i].at[s]))  # Add sentiment magnitude
+
+# Second loop: Calculate total sentiment magnitude per topic
+for i in range(5):
+    b = 0  # Accumulate sentiment for the current topic
+    s = 'topic_' + str(i) + '_pb_cons'
+    r = 'topic_' + str(i) + '_pb_pros'
+    for j in range(int(len(sent_prob))):
+        b += ((sent_prob.loc[j].at[r]) + (sent_prob.loc[j].at[s]))  # Add sentiment magnitude for the topic
+    fact.append(b)  # Store total sentiment for each topic
+
+# Calculate the relative importance of each topic by dividing topic total by overall total
+for i in fact:
+    imp.append(i / x)  # Append the importance ratio for each topic
+
+imp  # Display calculated importance values
+sent  # Display calculated sentiment scores
+
+
+
+
+
+
+
+
+# This code calculates sentiment and importance scores for each topic within groups of data based on company size. The results are organized by topic and 
+#company size, which can be used to assess topic sentiment and importance differences across various company sizes.
+
+import pandas as pd
+
+# Load a CSV file with company data
+store = pd.read_csv('hospitality data.csv')
+
+# Add a new column to 'sent_prob' with company size information from 'store'
+sent_prob['columename'] = store['Company Size']
+
+# View the updated 'sent_prob' DataFrame
+sent_prob
+
+# Sort 'sent_prob' by company size for further grouping
+size_sent = sent_prob.sort_values(['columename'])
+
+# Create a list of unique company sizes
+size = []
+for i in range(len(store)):
+    a = store.loc[i].at['Company Size']
+    if a not in size:
+        size.append(a)
+
+# Group 'size_sent' by company size and create a list of DataFrames for each group
+grouped = size_sent.groupby('columename')
+dataframes_s = [grouped.get_group(x) for x in grouped.groups] # List of DataFrames by company size
+
+# Sort the list of unique company sizes
+size.sort()
+
+# Merge the last two DataFrames in the list if needed
+dataframes_s[-3] = dataframes_s[-3].append(dataframes_s[-2])
+dataframes_s.pop(-2)  # Remove the now-merged DataFrame
+
+# Initialize lists to store sentiment and importance values by company size
+sent_size = []
+imp_size = []
+
+# Calculate sentiment and importance scores for each company size group
+for dataframes in dataframes_s:
+    # Reset index for dataframes after the first one
+    if l != 0:
+        dataframes = dataframes.reset_index()
+        l = l + 1
+
+    # Initialize a list for sentiment scores for each topic in the current group
+    sent_s0 = []
+    for i in range(5):  # For each topic (5 topics assumed)
+        a = 0
+        b = 0
+        s = 'topic_' + str(i) + '_pb_cons'
+        r = 'topic_' + str(i) + '_pb_pros'
+        # Calculate sentiment for the topic by comparing pros and cons
+        for j in range(int(len(dataframes))):
+            a = a + (float(dataframes.loc[j].at[r]) - float(dataframes.loc[j].at[s]))
+            b = b + (float(dataframes.loc[j].at[r]) + float(dataframes.loc[j].at[s]))
+        t = a / b  # Sentiment score for the topic
+        sent_s0.append(t)
+    sent_size.append(sent_s0)  # Append sentiment scores for current company size
+
+    # Initialize lists for importance calculation
+    imp_s0 = []
+    fact_s0 = []
+    x_s0 = 0
+
+    # Calculate total weight (importance) for each topic
+    for l in range(len(dataframes)):
+        for m in range(5):  # Again, assuming 5 topics
+            s = 'topic_' + str(m) + '_pb_cons'
+            r = 'topic_' + str(m) + '_pb_pros'
+            x_s0 = x_s0 + ((dataframes.loc[l].at[r]) + (dataframes.loc[l].at[s]))
+
+    # Calculate importance for each topic within this company size group
+    for k in range(5):
+        b = 0
+        s = 'topic_' + str(k) + '_pb_cons'
+        r = 'topic_' + str(k) + '_pb_pros'
+        for n in range(int(len(dataframes))):
+            b = b + ((dataframes.loc[n].at[r]) + (dataframes.loc[n].at[s]))
+        fact_s0.append(b)
+
+    # Normalize importance scores and add them to the list
+    for p in fact_s0:
+        imp_s0.append(p / x_s0)
+    imp_size.append(imp_s0)  # Append importance scores for current company size
+
+
+
+
+
+
+#The code creates a scatter plot comparing sentiment and importance scores across client size groups, using distinct colors and annotations for each group.
+
+# Import the matplotlib library for plotting
+import matplotlib.pyplot as plt
+
+# Define color map options for scatter plots
+s = ['Blues', 'pink', 'Greens', 'summer', 'Purples', 'Accent', 'Greys', 'bone', 'spring', 'twilight']
+
+# List of labels for annotating points in the plot
+n = [0, 1, 2, 3, 4]
+
+# Set up the size of the plot figure
+plt.figure(figsize=(20, 10))
+
+# Loop through each of the 10 sets of sentiment and importance data
+for i in range(10):
+    
+    # Set x and y to the sentiment and importance scores for group i
+    x = sent_size[i]
+    y = imp_size[i]
+ 
+    # Create a scatter plot for each group with varying color maps
+    plt.scatter(x, y, s=500, cmap=s[i])  # s=500 sets marker size, cmap sets color map
+    
+    # Annotate each point in the plot with corresponding labels from list 'n'
+    for i, txt in enumerate(n):
+        plt.annotate(txt, (x[i], y[i]))  # Position text annotations at each (x, y) point
+    
+    # Optional code to limit plot x and y ranges
+    # plt.xlim((-1, 8))
+    # plt.ylim((0, 8))
+
+# Set labels for x and y axes
+plt.xlabel('Sentiment')
+plt.ylabel('Importance')
+
+# Set the title for the plot
+plt.title('Scatter Plot: Client size group')
+
+# Create a legend using 'size' labels, positioning it in the upper left corner, and scaling marker sizes
+plt.legend(size, loc="upper left", markerscale=0.5)
+
+# Display an empty figure for potential additional plots
+plt.figure()
+
+
+
+
+
+
+#The code creates a scatter plot with each point representing a topic’s sentiment and importance scores. Labels for each topic are displayed next to 
+#their points in blue, inside a light blue text box.
+
+# Define color schemes and labels for topics
+s = ['Greens', 'summer', 'Purples', 'Accent', 'Greys', 'bone', 'spring', 'twilight']  # Unused in this specific plot
+n = ['Topic_0', 'Topic_1', 'Topic_2', 'Topic_3', 'Topic_4']  # Labels for each topic
+
+# Set up the plot dimensions
+plt.figure(figsize=(20,10))
+
+# Assign sentiment and importance values to x and y
+x = sent  # Sentiment scores for each topic
+y = imp   # Importance scores for each topic
+
+# Plot a scatter plot with specified marker color and size
+plt.scatter(x, y, c='orange', s=1000)  # Scatter plot with orange markers, size 1000
+
+# Annotate each point with its topic label
+for i, txt in enumerate(n):
+    plt.text(x[i], y[i], txt, fontdict=dict(color='blue', alpha=0.5, size=15),
+             bbox=dict(facecolor='lightblue', alpha=0.2))  # Text annotation with styling
+
+# Set x and y labels
+plt.xlabel('Sentiment')
+plt.ylabel('Importance')
+
+# Add a title to the plot
+plt.title('Scatter Plot')
+
+# Create an additional empty plot figure (useful for chaining or setting up further plots)
+plt.figure()
+
+
