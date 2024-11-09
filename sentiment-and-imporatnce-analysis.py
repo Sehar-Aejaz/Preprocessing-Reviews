@@ -762,6 +762,123 @@ for dataframes in dataframes_s:
 
 
 
+
+
+
+# This code calculates sentiment and importance scores for different usage durations based on pros and cons scores for topics. It groups data by usage time, 
+#computes normalized sentiment and importance values for each topic, and stores these values in lists for further analysis.
+
+
+# Load the sentiment probability data from CSV into a DataFrame
+usa_prob = pd.read_csv('sentiment_prob.csv')
+
+# Display the loaded data
+usa_prob
+
+# Add the 'Usage Duration' column from the 'store' DataFrame to the 'usa_prob' DataFrame as a new column named 'time'
+usa_prob['time'] = store['Usage Duration']
+
+# Display the updated DataFrame with the 'time' column added
+usa_prob
+
+# Create a list to store unique usage durations
+usa = []
+for i in range(len(store)):
+    # Check if the 'Usage Duration' for each row is not already in the list and add it if unique
+    if store.loc[i].at['Usage Duration'] not in usa:
+        usa.append(store.loc[i].at['Usage Duration'])
+
+# Check the number of unique usage durations
+len(usa)
+
+# Sort the unique usage durations in ascending order
+usa.sort()
+
+# Display the sorted list of unique usage durations
+usa
+
+# Group the 'usa_prob' DataFrame by the 'time' column and create a list of DataFrames, each corresponding to a unique usage time
+grouped = usa_prob.groupby('time')    
+dataframes_u = [grouped.get_group(x) for x in grouped.groups] # list of DataFrames for each usage duration
+
+# Display the DataFrame corresponding to the third unique usage time
+dataframes_u[2]
+
+# Placeholder variable (seems unused in the code) to show length
+len(paper)
+
+# Initialize lists to store sentiment and importance scores by usage duration
+sent_usa = []
+imp_usa = []
+
+# Loop through each DataFrame in 'dataframes_u', corresponding to each unique usage time
+for dataframes in dataframes_u:
+    # Reset index for each DataFrame to ensure sequential indexing
+    dataframes = dataframes.reset_index()
+    
+    # Initialize a list to store sentiment scores for this usage duration
+    sent_s0 = []
+    
+    # Calculate sentiment scores for each topic (0-4)
+    for i in range(5):
+        a = 0  # Initialize total sentiment difference
+        b = 0  # Initialize total sentiment sum
+        s = 'topic_' + str(i) + '_pb_cons'  # Column name for negative sentiment for topic i
+        r = 'topic_' + str(i) + '_pb_pros'  # Column name for positive sentiment for topic i
+        
+        # Sum the positive and negative sentiment scores for each entry in the DataFrame
+        for j in range(int(len(dataframes))):
+            a += (float(dataframes.loc[j].at[r]) - float(dataframes.loc[j].at[s]))  # Difference (pros - cons)
+            b += (float(dataframes.loc[j].at[r]) + float(dataframes.loc[j].at[s]))  # Sum (pros + cons)
+        
+        t = a / b if b != 0 else 0  # Calculate sentiment score; avoid division by zero
+        sent_s0.append(t)  # Append the score for topic i
+    
+    # Append the list of sentiment scores for this usage duration to 'sent_usa'
+    sent_usa.append(sent_s0)
+    
+    # Initialize lists and variables to store importance values for each topic in this usage duration
+    imp_s0 = []
+    fact_s0 = []
+    x_s0 = 0  # Total sum of positive and negative values across all topics for normalization
+    
+    # Sum all pros and cons values for normalization
+    for l in range(len(dataframes)):
+        for m in range(5):
+            s = 'topic_' + str(m) + '_pb_cons'
+            r = 'topic_' + str(m) + '_pb_pros'
+            x_s0 += (dataframes.loc[l].at[r] + dataframes.loc[l].at[s])
+    
+    # Calculate and append importance score for each topic based on its contribution to the total score
+    for k in range(5):
+        b = 0  # Total score for this topic
+        s = 'topic_' + str(k) + '_pb_cons'
+        r = 'topic_' + str(k) + '_pb_pros'
+        
+        # Sum positive and negative scores for this topic
+        for n in range(int(len(dataframes))):
+            b += (dataframes.loc[n].at[r] + dataframes.loc[n].at[s])
+        fact_s0.append(b)  # Append to fact_s0 for normalization
+    
+    # Normalize the scores for each topic and append to 'imp_s0'
+    for p in fact_s0:
+        imp_s0.append(p / x_s0 if x_s0 != 0 else 0)  # Normalize and handle division by zero
+    
+    # Append the list of importance scores for this usage duration to 'imp_usa'
+    imp_usa.append(imp_s0)
+
+# Final lists containing sentiment and importance scores for each usage duration group
+sent_usa
+imp_usa
+
+
+
+
+
+
+#-------------------------------------------------------------SOME EXAMPE PLOTS TO VISUALISE THE SENTIMENT AND IMPORATNCE ANALYSIS DATA----------------------------------------------------------------------------------------
+
+
 #The code creates a scatter plot comparing sentiment and importance scores across client size groups, using distinct colors and annotations for each group.
 
 # Import the matplotlib library for plotting
@@ -806,6 +923,55 @@ plt.legend(size, loc="upper left", markerscale=0.5)
 
 # Display an empty figure for potential additional plots
 plt.figure()
+
+
+
+
+
+
+
+
+#This code plots a scatter plot showing sentiment vs. importance for each usage duration group. Each group is plotted with a unique color, and each 
+#point is labeled with a topic number.
+
+import matplotlib.pyplot as plt
+
+# Define a list of color maps for scatter plots and topic labels
+s = ['Blues', 'pink', 'Greens', 'summer', 'Purples', 'Accent', 'Greys', 'bone', 'spring', 'twilight']
+n = [0,1,2,3,4]  # Topic labels
+
+# Set the figure size for the plot
+plt.figure(figsize=(20,10))
+
+# Loop through the first 6 groups based on usage duration
+for i in range(6):
+    # Get sentiment and importance values for the current usage duration group
+    x = sent_usa[i]
+    y = imp_usa[i]
+ 
+    # Plot a scatter plot for sentiment vs. importance for the current group
+    plt.scatter(x, y, s=500, cmap=s[i])  # Set color map and point size
+    
+    # Annotate each point with the topic number
+    for i, txt in enumerate(n):
+        plt.annotate(txt, (x[i], y[i]))
+    
+# Set labels and title for the plot
+plt.xlabel('Sentiment')
+plt.ylabel('Importance')
+
+plt.title('Scatter Plot : Group wise')
+
+# Add legend indicating different usage duration groups
+plt.legend(usa, loc="upper left", markerscale=0.5)
+
+# Set a title to indicate analysis by usage duration
+plt.title('Scatter Plot : Usage duration group')
+
+# Display an additional figure (empty plot at the end)
+plt.figure()
+
+
 
 
 
